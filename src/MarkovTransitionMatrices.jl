@@ -1,3 +1,5 @@
+__precompile__()
+
 module MarkovTransitionMatrices
 
 using Distributions
@@ -24,7 +26,7 @@ function markov_transition{T<:AbstractFloat}(μ::Function, Σ::Function, minp::A
 
   state_prod = Base.product(statevectors...)
 
-  transposeP = zeros(Float64, length(state_prod), length(state_prod))
+  transposeP = zeros(T, length(state_prod), length(state_prod))
 
   for (j,s1) in enumerate(state_prod)
     dist = myDist(μ(s1), Σ(s1))
@@ -62,7 +64,7 @@ function markovswitching_transition{T<:AbstractFloat}(μ::Function, Σ::Function
 
   n = prod(map(length, statevectors))
   regimes = Base.OneTo(k)
-  transposeP = zeros(Float64, k*n, k*n)
+  transposeP = zeros(T, k*n, k*n)
 
   for r1 in regimes
     for r2 in regimes
