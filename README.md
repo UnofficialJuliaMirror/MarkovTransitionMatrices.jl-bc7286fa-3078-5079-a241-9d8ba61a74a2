@@ -6,11 +6,8 @@
 
 [![codecov.io](http://codecov.io/github/magerton/MarkovTransitionMatrices.jl/coverage.svg?branch=master)](http://codecov.io/github/magerton/MarkovTransitionMatrices.jl?branch=master)
 
-This package creates a Markov transition matrix for a discrete process where innovations
-are Gaussian. The transition matrix returned is **TRANSPOSED** so that
-`P[i,j] = Pr(state_{t+1}=i | state_t = j)`. This is because it is faster to iterate over
-the matrix with the current state as the column and next period as the row. The
-matrix is also sparse to save space.
+This package creates a Markov transition matrix `P[i,j] = Pr(state_{t+1}=j | state_t = i)`
+for a discrete process where innovations are Gaussian. The matrix returned is sparse to save space.
 
 # Example: Correlated random walk
 
@@ -38,7 +35,7 @@ P = markov_transition(μ, Σ, 1e-8, grid_x1, grid_x2)
 
 We can also model a Markov-switching process with a finite number of regimes
 `r ∈ {1,2,…,k}`. Let the transition matrix for the `k` regimes
-(*not transposed*) be
+`πswitch = Pr(s_{t+1} = j | s_t = k)` be
 ```julia
 πswitch = [.9 .1; .4 .6]
 ```
