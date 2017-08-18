@@ -1,4 +1,4 @@
-# using MarkovTransitionMatrices
+using MarkovTransitionMatrices
 
 # state grids
 grid_x1 = 0.0:1.0:10.0
@@ -11,10 +11,6 @@ minp = 1e-8
 μ(s) = [s...]
 Σ(s) = [1.0 0.5; 0.5 1.0]
 P = markov_transition(μ, Σ, minp, grid_x1, grid_x2)
-
-full(markov_transition((s)-> 0.0, (s...) -> 1.0, minp, -3.0:0.3:3.0))[1,:]
-
-MarkovTransitionMatrices.
 
 # Markov-switching process
 
