@@ -39,7 +39,7 @@ end
 # -------------------- cosntructors --------------------------
 
 "Wrapper constructs markov Transition matrix & discrete states from VAR_process"
-function VAR_states_transition{T<:AbstractFloat}(vpp::VAR_process{T}, states_per_dim::Int=4, num_moments::Int=2, nσ::T = 0.)
+function VAR_states_transition(vpp::VAR_process{T}, states_per_dim::Int=4, num_moments::Int=2, nσ::T=0.0) where {T<:AbstractFloat}
   yy = collect(yspace(vpp, states_per_dim, nσ))
   SS = nprod(yy, vpp.M)
   DD = makeD(SS)
@@ -48,7 +48,7 @@ function VAR_states_transition{T<:AbstractFloat}(vpp::VAR_process{T}, states_per
   transitions = probabilityProd(P)
   StatsBase.countmap(nM)
 
-  states = broadcast(+, vpp.C*DD, vpp.μ)
+  states = vpp.C*DD .+ vpp.μ
 
   return VAR_states_transition(states, transitions)
 end
@@ -59,22 +59,22 @@ end
 
 
 "Constructor for univariate AR process"
-function VAR_process{T<:AbstractFloat}(b::T, B::T, Ψ::T)
+function VAR_process(b::T, B::T, Ψ::T) where {T<:AbstractFloat}
   o2 = ones(T, 1, 1)
   o1 = ones(T, 1)
 
-  M = 1
+  M = 1.0
   C = sqrt(Ψ)   * o2;
   A = B         * o2;
-  μ = b/(1-B)   * o2;
-  Σ = 1/(1-B^2) * o2;
+  μ =   b/(1.0-B)   * o2;
+  Σ = 1.0/(1.0-B^2) * o2;
 
   return VAR_process(b*o1, B*o2, Ψ*o2, M, A, C, Σ, μ)
 end
 
 
 "Constructor for VAR process"
-function VAR_process{T<:AbstractFloat}(b::Array{T,1}, B::Array{T,2}, Ψ::Array{T,2})
+function VAR_process(b::Array{T,1}, B::Array{T,2}, Ψ::Array{T,2}) where {T<:AbstractFloat}
   size(B) == size(Ψ)     || error("B and Ψ must be the same size")
   length(b) == size(B,1) || error("b must be same length as B's width")
 
@@ -83,16 +83,16 @@ function VAR_process{T<:AbstractFloat}(b::Array{T,1}, B::Array{T,2}, Ψ::Array{T
   b = reshape(b,M,1)
   tildeC = chol(Ψ)'
   tildeA = tildeC \ B * tildeC
-  tildeΣ = reshape( (eye(M^2) - kron(tildeA,tildeA)) \ reshape(eye(M), M^2, 1), M, M)
+  tildeΣ = reshape( (eye(T,M^2) - kron(tildeA,tildeA)) \ vec(eye(T,M)), M, M)
 
   # Objective is to make unconditional varances of y_k's equal
-  function f(Vvec::Array{T,1}, grad::Array{T,1})
+  function f(Vvec::Array{T,1}, grad::Array{T,1}) where {T}
     V = reshape(Vvec,M,M)
-    return norm( broadcast(-, diag(V'*tildeΣ*V), trace(tildeΣ)/M) )
+    return norm( diag(V'*tildeΣ*V) .- trace(tildeΣ)/M )
   end
 
   # Constraint is that U is orthognoal (U'U = I)
-  function c(res::Array{T,1}, Vvec::Array{T,1}, grad::Array{T,2})
+  function c(res::Array{T,1}, Vvec::Array{T,1}, grad::Array{T,2}) where {T}
     V = reshape(Vvec,M,M)
     res[:] = vec(V'*V - eye(M))
   end
@@ -120,7 +120,7 @@ end
 
 
 "Linear space for y given a VAR process and length Nm"
-function yspace{T<:AbstractFloat}(vp::VAR_process{T}, Nm::Int=5, nσ::T=0.)
+function yspace(vp::VAR_process{T}, Nm::Int=5, nσ::T=0.0) where {T<:AbstractFloat}
   σmin = sqrt(minimum(eigvals(vp.Σ)))
   if nσ <= zero(T)
     nσ = sqrt(convert(T, Nm) - one(T))
@@ -130,28 +130,28 @@ end
 
 
 "Make Cartesian Product given state space"
-function nprod{T<:Real}(x::Array{T,1}, n::Int)
+function nprod(x::Array{T,1}, n::Int) where {T<:Real}
     if n<1
       return error("n must be >= 1")
     end
     if n==1
       return x
     elseif n==2
-      return Base.Prod2(x, nprod(x,n-1))
+      return Base.Iterators.Prod2(x, nprod(x,n-1))
     else
-      return Base.Prod(x, nprod(x,n-1))
+      return Base.Iterators.Prod(x, nprod(x,n-1))
     end
 end
 
 
 "Make state space matrix from vector"
-function makeD{T<:AbstractFloat}(S::Vector{T})
+function makeD(S::Vector{T}) where {T<:AbstractFloat}
   return reshape(S, (1, length(S) ) )
 end
 
 
 "Make state space matrix from product iterator"
-function makeD(S::Base.AbstractProdIterator)
+function makeD(S::Base.Iterators.AbstractProdIterator)
   T = eltype(eltype(S))
   D = zeros(T, length(size(S)), length(S) )
   for (j,s) in enumerate(S)
@@ -175,7 +175,7 @@ end
 
 
 "Given 3-d matrix of (independent) probability distributions get the product of them"
-function probabilityProd{T<:AbstractFloat}(x::Array{T,3})
+function probabilityProd(x::Array{T,3}) where {T<:AbstractFloat}
   J =size(x,1)
   XX = Array(T, J, J)
 
@@ -184,9 +184,9 @@ function probabilityProd{T<:AbstractFloat}(x::Array{T,3})
     if m==1
       return y[Mm,:]
     elseif m==2
-      return Base.Prod2(y[Mm,:], myprod2(y, m-1))
+      return Base.Iterators.Prod2(y[Mm,:], myprod2(y, m-1))
     else
-      return Base.Prod(y[Mm,:], myprod2(y, m-1))
+      return Base.Iterators.Prod(y[Mm,:], myprod2(y, m-1))
     end
   end
 
@@ -200,6 +200,27 @@ end
 
 # -------------------- big function that makes transition matrix --------------------------
 
+# return a PDF
+normpdf(x::Vector{T}) = pdf(Normal(), x)
+
+# objective
+f(x::Vector{T}, q::Vector{T}, ΔT::Matrix{T}) where {T} = dot(q,exp(x'*ΔT[1:l,:]))
+
+# gradient
+function g!(grad::Vector{T}, x::Vector{T}, q::Vector{T}, ΔT::Matrix{T}) where {T}
+  grad .= zero(T)
+  for i in 1:length(q)
+    grad .+= q[i] * exp( dot(x, ΔT[1:l,i]) ) * ΔT[1:l,i]
+  end
+end
+
+# hessian
+function h!(hess::Matrix{T}, x::Vector{T}, q::Vector{T}, ΔT::Matrix{T}) where {T}
+  hess .= zero(T)
+  for i in 1:length(q)
+    hess .+= q[i] * exp( dot(x, ΔT[1:l,i]) ) * (ΔT[1:l,i]*ΔT[1:l,i]')
+  end
+end
 
 
 """
@@ -229,7 +250,7 @@ by taking the Kronecker product of the `M` columns of matrix `P[i, :, :]`.
 * `numMoments::Matrix{Int}(Nm^M, M)` number of moments successfully matched
 * `approxErr::Matrix{T}(Nm^M, M, L)` approsimation error for each moment
 """
-function makeTransitionMatrix{T<:AbstractFloat}(y::Vector{T}, S::Union{Vector{T}, Base.AbstractProdIterator}, D::Array{T}, vp::VAR_process{T}, L::Int=2, κ::T=1e-8)
+function makeTransitionMatrix(y::Vector{T}, S::PT, D::Array{T}, vp::VAR_process{T}, L::Int=2, κ::T=1e-8) where {T<:AbstractFloat, PT<:Union{AbstractVector{T}, Base.AbstractProdIterator}}
 
   if L >= length(y)
     warn("Using fewer moments. Gave ", L, " using ", length(y)-1)
@@ -237,10 +258,10 @@ function makeTransitionMatrix{T<:AbstractFloat}(y::Vector{T}, S::Union{Vector{T}
   end
 
   # Initialize elements that will be returned
-  Λ = zeros(T, length(S), vp.M, L)
-  P = zeros(T, length(S), vp.M, length(y))
-  JN = zeros(T, length(S), vp.M)
-  approxErr = zeros(T, length(S), vp.M, L)
+  Λ          = zeros(T  , length(S), vp.M, L)
+  P          = zeros(T  , length(S), vp.M, length(y))
+  JN         = zeros(T  , length(S), vp.M)
+  approxErr  = zeros(T  , length(S), vp.M, L)
   numMoments = zeros(Int, length(S), vp.M)
 
   # preallocate these, which will be updated each iteration
@@ -250,64 +271,43 @@ function makeTransitionMatrix{T<:AbstractFloat}(y::Vector{T}, S::Union{Vector{T}
 
   δ = y[end]  # a scaling factor
 
-  # return a PDF
-  function normpdf(x::Array{T,1})
-    return Distributions.pdf(Distributions.Normal(), x)
-  end
-
   # Conditional on each state (j), examine each of the m state vs
-  prog = ProgressMeter.Progress(length(S), 5)
+  prog = Progress(length(S), 5)
 
   for j in 1:length(S)
     for m in 1:vp.M
-      dev[:] = (y - dot(vp.A[m,:], D[:,j]))
-      q[:]  = max(normpdf(dev), κ)
+      dev .= (y - dot(vp.A[m,:], D[:,j]))
+      q .= max(normpdf(dev), κ)
 
       for l in L:-1:1
-        ΔT[1:l,:] = broadcast(-, (dev / δ )'.^collect(1:l), Tbar(l, δ))
+        ΔT[1:l,:] = (dev ./ δ )'.^(1:l) .- Tbar(l, δ)
 
-        # objective
-        f(x::Array{T,1})  = dot(q,exp(x'*ΔT[1:l,:]))
-
-        # gradient
-        grad = zeros(T,l)
-        function g!(x::Array{T,1}, grad::Array{T,1})
-          grad[:] = 0
-          for i in 1:length(q)
-            grad[:] += q[i] * exp( dot(x, ΔT[1:l,i]) ) * ΔT[1:l,i]
-          end
-        end
-
-        # hessian
-        hess = zeros(T,l,l)
-        function h!(x::Array{T,1}, hess::Array{T,2})
-          hess[:,:] = 0
-          for i in 1:length(q)
-            hess[:,:] += q[i] * exp( dot(x, ΔT[1:l,i]) ) * (ΔT[1:l,i]*ΔT[1:l,i]')
-          end
-        end
+        # closures
+        f_cl = f(x::Vector) = f(x, q, ΔT)
+        g_cl!(grad::Vector, x::Vector) = g!(grad, x, q, ΔT)
+        h_cl!(hess::Matrix, x::Vector) = h!(hess, x, q, ΔT)
 
         # optimize to match moments
         try
-          res = Optim.optimize(f, g!, h!, Λ[j,m,1:l])
+          res = Optim.optimize(f_cl, g_cl!, h_cl!, ones(T,l))
           λ = Optim.minimizer(res)
           J_candidate = Optim.minimum(res)
+          grad = zeros(T,l)
           g!(λ,grad)
 
           # if we like the results, update and break
-          if ( norm( grad / λ ) < 1e-5 ) & all(isfinite(grad)) & all(isfinite(λ)) & (J_candidate > 0.0)
+          if ( norm( grad ./ J_candidate ) < 1e-5 ) & all(isfinite.(grad)) & all(isfinite.(λ)) & (J_candidate > 0.0)
             JN[j,m] = J_candidate
-            Λ[j,m,1:l] = λ
+            Λ[j,m,1:l] .= λ
             for k in 1:length(y)
-              P[j,m,k] = q[k] * exp( dot(λ, ΔT[1:l,k]) ) / JN[j,m]
+              P[j,m,k] = q[k] * exp( dot(λ, ΔT[1:l,k]) ) / J_candidate
             end
-            approxErr[j,m,1:l] = grad / JN[j,m]
+            approxErr[j,m,1:l] .= grad ./ J_candidate
             numMoments[j,m] = l
             break
           end # if statment
         catch
         end
-
 
       end   # loop over moment number of conditions (l=L:1)
     end     # loop over number of states (m = 1:M)
@@ -327,7 +327,7 @@ end
 
 Returns striped array where trues are on diagonals `ur`
 """
-function striped_bool(m::Integer, n::Integer, ur::UnitRange)::Matrix{Bool}
+function striped_bool(m::Integer, n::Integer, ur::UnitRange)
   out   = fill(false, m, n)
   trues = fill(true, m, n)
   for i in ur
@@ -343,7 +343,7 @@ end
 Construct sparse transition matrix from `P` where elements not on diagonals `which_diags`
 or less than `minp` are zeroed out. (Ensures that rows sum to 1)
 """
-function sparsify_transition_matrix{T<:AbstractFloat}(P::Matrix{T}, minp::T, which_diags::UnitRange)::SparseMatrixCSC{T}
+function sparsify_transition_matrix(P::Matrix{T}, minp::T, which_diags::UnitRange) where {T<:AbstractFloat}
 
   sb = striped_bool(size(P, 1), size(P, 2), which_diags)
   P_big = P .> minp
