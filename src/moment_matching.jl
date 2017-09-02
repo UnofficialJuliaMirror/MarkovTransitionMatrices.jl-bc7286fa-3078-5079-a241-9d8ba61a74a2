@@ -170,7 +170,7 @@ whichP(P::Matrix,         ::Type{Val{false}}) = P
 
 function fixp(P::AbstractMatrix{T}, minp::Real) where {T<:AbstractFloat}
   P ./= sum(P, 2)
-  P .= (P .> minp) .* P
+  P .*= (P .> minp)
   P ./= sum(P, 2)
   makesparse = minp > 0.0
   return whichP(P, Val{makesparse})
