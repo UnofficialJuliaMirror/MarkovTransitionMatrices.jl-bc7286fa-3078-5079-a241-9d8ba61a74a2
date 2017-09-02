@@ -1,5 +1,6 @@
 using MarkovTransitionMatrices
 using Base.Test
+using BenchmarkTools
 
 using Distributions
 
@@ -35,26 +36,44 @@ fullp3 = full(markovswitching_transition(μswitch, Σswitch, πswitch, 0.0, test
 
 # ---------------------------------------------------------------
 
+println("Testing moment-matching")
+
 s = -3.0:0.25:3.0
 ss = -3.0:0.25:3.0, -3.0:0.25:3.0
+
 # simulate random walks w/ moment matching
-P_match_1, mom, er = markov_transition_moment_matching((s) -> 0.0   , (s) -> 1.0   , 1e-8, s)
-P_match_2, mom, er = markov_transition_moment_matching((s) -> [s...], (s) -> eye(2), 1e-8, ss...)
+p_P_match_1, p_mom, p_er = markov_transition_moment_matching_parallel((s) -> 0.0   , (s) -> 1.0   , 1e-8, s)
+s_P_match_1, s_mom, s_er = markov_transition_moment_matching_serial(  (s) -> 0.0   , (s) -> 1.0   , 1e-8, s)
+@test true == all(s_P_match_1 .== p_P_match_1) == all(s_mom .== p_mom) == all(s_er[isfinite.(s_er)] .== p_er[isfinite.(p_er)])
+println("Single-var serial/parallel OK")
+
+p_P_match_2, p_mom, p_er = markov_transition_moment_matching_parallel((s) -> [s...], (s) -> eye(2), 1e-8, ss...)
+s_P_match_2, s_mom, s_er = markov_transition_moment_matching_serial(  (s) -> [s...], (s) -> eye(2), 1e-8, ss...)
+@test true == all(s_P_match_2 .≈ p_P_match_2) == all(s_mom .≈ p_mom) == all(s_er[isfinite.(s_er)] .== p_er[isfinite.(p_er)])
+println("Multi-var serial/parallel OK")
 
 # share of states that get moment-matching
-share = sum(mom .> 0) / length(mom) * 100
+share = sum(s_mom .> 0) / length(s_mom) * 100
 @show "$share percent of states get moment-matching"
 @test share .> 0.5
 
 # without matching
 P_nomatch_2 = markov_transition((s) -> [s...], (s) -> eye(2), 1e-8, ss...)
-number_diff = sum(P_match_2 .!= P_nomatch_2)
-sd_diff = sum((P_match_2 .- P_nomatch_2).^2)/prod(size(P_match_2))
-abs_diff = sum(abs.(P_match_2 .- P_nomatch_2))/prod(size(P_match_2))
-sharediff = number_diff / prod(size(P_match_2))
-nm = norm(vec(P_match_2 .- P_nomatch_2), Inf)
+number_diff = sum(s_P_match_2 .!= P_nomatch_2)
+sd_diff = sum((s_P_match_2 .- P_nomatch_2).^2)/prod(size(s_P_match_2))
+abs_diff = sum(abs.(s_P_match_2 .- P_nomatch_2))/prod(size(s_P_match_2))
+sharediff = number_diff / prod(size(s_P_match_2))
+nm = norm(vec(s_P_match_2 .- P_nomatch_2), Inf)
 @show "max difference between matching & no-matching is $nm"
 @show "$sharediff percent of probabilities change"
+
+
+# benchmarking
+println("Benchmarking parallel...")
+@show @benchmark markov_transition_moment_matching_parallel(  (s) -> [s...], (s) -> eye(2), 1e-8, ss...)
+println("Benchmarking serial...")
+@show @benchmark markov_transition_moment_matching_serial(    (s) -> [s...], (s) -> eye(2), 1e-8, ss...)
+
 
 # using Plots
 # gr()

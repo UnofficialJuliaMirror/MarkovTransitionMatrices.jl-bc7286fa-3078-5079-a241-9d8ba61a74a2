@@ -1,11 +1,12 @@
-# __precompile__()
+__precompile__()
 
 module MarkovTransitionMatrices
 
+using GenGlobal
 using Distributions
 using Optim
 
-export markov_transition, markovswitching_transition, markov_transition_moment_matching
+export markov_transition, markovswitching_transition, markov_transition_moment_matching_parallel, markov_transition_moment_matching_serial
 
 myDist(μ::Real, σ::Real) = Normal(μ, σ)
 myDist(μ::Vector, Σ::Matrix) = MvNormal(μ, Σ)
