@@ -12,7 +12,7 @@ function markov_transition(μ::Function, Σ::Function, minp::AbstractFloat, stat
   0. <= minp < 1. || throw(DomainError())
 
   state_prod = Base.product(statevectors...)
-
+  
   P = zeros(T, length(state_prod), length(state_prod))
 
   for (j, s2) in enumerate(state_prod)
@@ -21,11 +21,8 @@ function markov_transition(μ::Function, Σ::Function, minp::AbstractFloat, stat
       P[i,j] = mypdf(dist, s2)
     end
   end
-  P .= (P .> minp) .* P
-  P ./= sum(P, 2)
 
-  return sparse(P)
-
+  return fixp(P, minp)
 end
 
 
@@ -59,5 +56,5 @@ function markovswitching_transition{T<:AbstractFloat}(μ::Function, Σ::Function
     end
   end
 
-  return sparse(P)
+  return whichP(P, Val{minp > 0.0})
 end

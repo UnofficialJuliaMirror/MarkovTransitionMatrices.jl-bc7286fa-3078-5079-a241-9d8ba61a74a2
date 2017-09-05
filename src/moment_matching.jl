@@ -138,14 +138,14 @@ function matchmoment!(i::Integer, s1::NTuple{N,T}, q0::Vector{T}, ΔT::Array{T},
   h_cl!( hess::Matrix{T}, λ::Vector{T}) where {T} = h!( λ, hess, q0, ΔT)
   td = TwiceDifferentiable(f_cl, g_cl!, fg_cl!, h_cl!)
 
-  res = Optim.optimize(td, ones(T,L))
+  res = Optim.optimize(td, ones(T,L), Optim.Options(time_limit=15))
   λ = Optim.minimizer(res)
   J_candidate = Optim.minimum(res)
   g_cl!(grad, λ)
   approxErr[:, i] .= grad / J_candidate
 
   # if we like the results, update and break
-  if ( norm( grad ./ J_candidate ) < 1e-4 ) & all(isfinite.(grad)) & all(isfinite.(λ)) & (J_candidate > 0.0)
+  if ( norm(@view(approxErr[:, i]), Inf) < 1e-4 ) & all(isfinite.(grad)) & all(isfinite.(λ)) & (J_candidate > 0.0)
     for k in 1:length(q0)
       P[i,k] = q0[k] * exp( dot(λ, @view(ΔT[:,k])) ) / J_candidate
     end
@@ -164,18 +164,6 @@ end
 
 # -------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------
-whichP(P::AbstractMatrix, ::Type{Val{true}})  = sparse(P)
-whichP(P::SharedMatrix,   ::Type{Val{false}}) = sdata(P)
-whichP(P::Matrix,         ::Type{Val{false}}) = P
-
-function fixp(P::AbstractMatrix{T}, minp::Real) where {T<:AbstractFloat}
-  P ./= sum(P, 2)
-  P .*= (P .> minp)
-  P ./= sum(P, 2)
-  makesparse = minp > 0.0
-  return whichP(P, Val{makesparse})
-end
-
 
 function markov_transition_moment_matching_parallel(μ::Function, Σ::Function, minp::AbstractFloat, statevectors::AbstractVector{T}...) where {T<:AbstractFloat}
 
@@ -188,23 +176,17 @@ function markov_transition_moment_matching_parallel(μ::Function, Σ::Function, 
   J = length(state_prod)     # size of state space
   L = Int(nd + nd*(nd+1)/2)  # moments to match (mean + var)
 
-  pids = addprocs()
+  P               = SharedMatrix{T}(   (J, J,), init = S -> S[Base.localindexes(S)] = zero(T))
+  approxErr       = SharedMatrix{T}(   (L,J,),  init = S -> S[Base.localindexes(S)] = typemax(T))
+  moments_matched = SharedVector{Int}( (J,),    init = S -> S[Base.localindexes(S)] = zero(Int))
 
   @eval @everywhere begin
-    using MarkovTransitionMatrices
     set_g_q0(  zeros($T, $J) )
     set_g_ΔT(  zeros($T, $L, $J) )
     set_g_grad(zeros($T, $L) )
     set_g_stateprod($state_prod)
     set_g_μ($μ)
     set_g_Σ($Σ)
-  end
-
-  P               = SharedMatrix{T}(   (J, J,), init = S -> S[Base.localindexes(S)] = zero(T))
-  approxErr       = SharedMatrix{T}(   (L,J,),  init = S -> S[Base.localindexes(S)] = typemax(T))
-  moments_matched = SharedVector{Int}( (J,),    init = S -> S[Base.localindexes(S)] = zero(Int))
-
-  @eval @everywhere begin
     set_g_approxErr($approxErr)
     set_g_P($P)
     set_g_moments_matched($moments_matched)
@@ -213,7 +195,6 @@ function markov_transition_moment_matching_parallel(μ::Function, Σ::Function, 
   @sync @parallel for is1 in collect(enumerate(state_prod))
     matchmoment!(is1...)
   end
-  rmprocs(pids)
 
   return fixp(P, minp), sdata(moments_matched), sdata(approxErr)
 end

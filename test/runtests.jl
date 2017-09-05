@@ -39,7 +39,10 @@ fullp3 = full(markovswitching_transition(μswitch, Σswitch, πswitch, 0.0, test
 println("Testing moment-matching")
 
 s = -3.0:0.25:3.0
-ss = -3.0:0.25:3.0, -3.0:0.25:3.0
+ss = -3.0:0.125:3.0, -3.0:0.125:3.0
+
+pids = addprocs()
+@everywhere using MarkovTransitionMatrices
 
 # simulate random walks w/ moment matching
 p_P_match_1, p_mom, p_er = markov_transition_moment_matching_parallel((s) -> 0.0   , (s) -> 1.0   , 1e-8, s)
@@ -74,6 +77,7 @@ println("Benchmarking parallel...")
 println("Benchmarking serial...")
 @show @benchmark markov_transition_moment_matching_serial(    (s) -> [s...], (s) -> eye(2), 1e-8, ss...)
 
+rmprocs(pids)
 
 # using Plots
 # gr()
