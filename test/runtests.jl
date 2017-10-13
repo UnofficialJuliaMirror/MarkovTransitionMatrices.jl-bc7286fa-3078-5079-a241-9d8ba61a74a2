@@ -6,6 +6,8 @@ using Distributions
 
 isapprox_oneval(x::AbstractArray) = all( x .≈ x[1] )
 
+include("FarmerTodaBmark.jl")
+
 # setup for test
 testvec = -3.0:0.5:0.0
 ss = collect(Base.product(testvec, testvec))

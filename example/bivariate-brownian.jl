@@ -1,117 +1,56 @@
 using MarkovTransitionMatrices
-using Distributions
+using Base.Test
+using Plots
+gr()
 
-MarkovTransitionMatrices.Tbar(5,1.0)
+nP = 31
+nC = 37
+n = nP * nC
 
+σp = [0x1.269c263357e05p-4, 0x1.9bec08eb57abfp-5]
+σc = [0x1.2c9a3a5b8b5bap-5, 0x1.09d5d411d8a33p-7]
 
-σp = [0.05028345, 0.07192626]
-σc = [0.008112649, 0.036694635]
+Πk = [0x1.d7e13e2f38db1p-1 0x1.40f60e8638b53p-4;
+      0x1.098244df0fddfp-4 0x1.decfb7641df78p-1]
+all(sum(Πk,2) .≈ 1.0) || throw(error("each row of π must sum to 1"))
 
-Πk = [0.93517852 0.07835965 ;
-      0.06482148 0.92164035 ]
-
+K = size(Πk,2)
 extrema_p = [0.8776572, 2.485073]
 extrema_c = [0.2437302, 1.529529]
 
-pspace = linspace(extrema_p[1]-log(2.), extrema_p[2] + log(2.), 11)
-cspace = linspace(extrema_c[1]-log(2.), extrema_c[2] + log(2.), 11)
+# state-spaces
+pspace = linspace(extrema_p[1]-log(1.5), extrema_p[2] + log(1.5), nP)
+cspace = linspace(extrema_c[1]-log(1.5), extrema_c[2] + log(1.5), nC)
 
-function expΔTx!(x::Vector, ΔT::AbstractMatrix, tmpvec::Vector)
-  A_mul_B!(tmpvec, ΔT, x)
-  tmpvec .= exp.(tmpvec)
+# make deviations
+zrandwalk(x::Real, st::Real, σ::Real) = (x - st) / σ
+
+# allocate giant transition matrix
+P = Matrix{eltype(pspace)}(n*K,n*K)
+
+# match moments for logp
+Pp1, JN, Λ, L_p1, approxErr = discreteNormalApprox(pspace, pspace, (x::Real,st::Real) -> zrandwalk(x,st,σp[1]), 15)
+Pp2, JN, Λ, L_p2, approxErr = discreteNormalApprox(pspace, pspace, (x::Real,st::Real) -> zrandwalk(x,st,σp[2]), 15)
+plot(pspace, [L_p1,L_p2], yticks = 1:15, labels=["Hi vol", "Lo vol"], xlabel="Log p", ylabel="Moments matched")
+
+# match moments for logc
+Pc1, JN, Λ, L_c1, approxErr = discreteNormalApprox(cspace, cspace, (x::Real,st::Real) -> zrandwalk(x,st,σc[1]), 13)
+Pc2, JN, Λ, L_c2, approxErr = discreteNormalApprox(cspace, cspace, (x::Real,st::Real) -> zrandwalk(x,st,σc[2]), 5)
+plot(cspace, [L_c1,L_c2], yticks = 1:15, labels=["Hi vol", "Lo vol"], xlabel="Log c", ylabel="Moments matched")
+
+# sparse versions
+minp = 1e-6
+sPp1 = MarkovTransitionMatrices.sparsify!(Pp1, minp)
+sPp2 = MarkovTransitionMatrices.sparsify!(Pp2, minp)
+sPc1 = MarkovTransitionMatrices.sparsify!(Pc1, minp)
+sPc2 = MarkovTransitionMatrices.sparsify!(Pc2, minp)
+
+# do the big matrix
+P12 = (kron(sPc1, sPp1), kron(sPc2, sPp2))
+for r2 in 1:K
+  for r1 in 1:K
+    P[(r1-1)*n+1:r1*n,  (r2-1)*n+1:r2*n] .= Πk[r1, r2] .* P12[r2]
+  end
 end
 
-# objective
-function f2!(tmpvec::Vector, x::Vector, q::Vector, ΔT::AbstractMatrix)
-  expΔTx!(tmpvec, ΔT, x)
-  return dot(q, tmpvec)
-end
-
-# gradient
-function g2!(grad::Vector, tmpvec::Vector, x::Vector, q::Vector, ΔT::AbstractMatrix)
-  expΔTx!(tmpvec, ΔT, x)
-  tmpvec .*= q
-  grad .= sum(tmpvec .* ΔT)
-end
-
-function fg2!(grad::Vector, tmpvec::Vector, x::Vector, q::Vector, ΔT::AbstractMatrix)
-  expΔTx!(tmpvec, ΔT, x)
-  tmpvec .*= q
-  grad .= sum(tmpvec .* ΔT)
-  return sum(tmpvec)
-end
-
-function transition!(P::AbstractMatrix, y::AbstractVector{T}, S::Union{AbstractVector, Base.AbstractProdIterator}, sdev::Function, maxMoments::Int=2, κ::Real=1e-8) where {T<:Real}
-
-  num_states = length(S)
-  n = length(y)
-  maxMoments >= n   || throw(error("Must use $n-1 moments or vewer"))
-  (nS,n) == size(P) || throw(DimensionMismatch())
-
-  # Initialize elements that will be returned
-  Λ          = zeros(T  , nS, maxMoments)
-  JN         = zeros(T  , nS)
-  approxErr  = zeros(T  , nS, maxMoments)
-  numMoments = zeros(Int, nS)
-
-  # preallocate these, which will be updated each iteration
-  ΔT   = Array(T,n,maxMoments)
-  dev  = Array(T,n)
-  q    = Array(T,n)
-  tmpvec = Array(T,n)
-
-  δ = y[end]  # a scaling factor
-  Tbar = [m for m in NormCentralMoment(L, 1./δ)]
-
-  for i,s in enumerate(S)
-      dev .= sdev(y, s)
-      q .= max.(normpdf(dev), κ)
-      dev ./= δ
-
-      for l in maxMoments:-1:1
-        for j = 1:l
-          ΔT[:,j] .= dev.^j .- Tbar[j]
-        end
-
-        # closures
-        ΔTvw = @view(ΔT[:,1:l])
-        odf = OnceDifferentiable(
-          (x::Vector)               -> f2!(       tmpvec, x, q, ΔT),
-          (grad::Vector, x::Vector) -> g2!( grad, tmpvec, x, q, ΔT),
-          (grad::Vector, x::Vector) -> fg2!(grad, tmpvec, x, q, ΔT)
-        )
-
-        # optimize to match moments
-        try
-          res = Optim.optimize(odf, ones(T,l))
-          λ = Optim.minimizer(res)
-          J_candidate = Optim.minimum(res)
-          grad = zeros(T,l)
-          g!(λ,grad)
-
-          # if we like the results, update and break
-          if ( norm( grad ./ J_candidate ) < 1e-5 ) & all(isfinite.(grad)) & all(isfinite.(λ)) & (J_candidate > 0.0)
-            JN[i] = J_candidate
-            Λ[i,1:l] .= λ
-            for j in 1:n
-              expΔTx!(tmpvec, ΔTvw, λ)
-              P[i,:] .= q .* tmpvec ./ J_candidate
-            end
-            approxErr[i,1:l] .= grad ./ J_candidate
-            numMoments[i] = l
-            break
-          end # if statment
-        catch
-        end
-
-      end   # loop over moment number of conditions (l=maxMoments:1)
-    end     # loop over number of states (m = 1:M)
-  end       # loop over state space (i=1:J)
-
-  return P, JN, Λ, numMoments, approxErr
-end
-
-
-
-
-#
+sP = sparse(P)
