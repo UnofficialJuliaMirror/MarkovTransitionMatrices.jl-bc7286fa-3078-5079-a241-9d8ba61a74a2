@@ -1,4 +1,4 @@
-__precompile__()
+# __precompile__()
 
 module MarkovTransitionMatrices
 
@@ -28,6 +28,9 @@ end
 include("simple_no_matching.jl")
 include("moment_matching.jl")
 include("transition_from_data.jl")
+# include("Farmer_Toda_VAR.jl")
+include("normal_moments.jl")
+
 
 # module end
 end
