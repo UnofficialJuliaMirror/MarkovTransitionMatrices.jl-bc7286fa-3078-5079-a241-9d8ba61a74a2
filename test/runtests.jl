@@ -1,5 +1,5 @@
 using MarkovTransitionMatrices
-using Base.Test
+using Test
 using BenchmarkTools
 
 using Distributions

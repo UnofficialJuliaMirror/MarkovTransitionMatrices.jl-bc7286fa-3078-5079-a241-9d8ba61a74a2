@@ -6,6 +6,9 @@ using GenGlobal
 using Distributions
 using Optim
 using StatsFuns
+using SharedArrays
+using Base.Iterators
+using Distributed
 
 export markov_transition, markovswitching_transition, markov_transition_moment_matching_parallel, markov_transition_moment_matching_serial
 

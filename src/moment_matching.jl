@@ -77,7 +77,7 @@ end
 
 
 # Multivariate version
-function momentdiff!(sprod::Base.Iterators.AbstractProdIterator, theory_mean::Vector{T}, theory_var::Matrix{T}, ΔT::Matrix) where {T<:AbstractFloat}
+function momentdiff!(sprod::Base.Iterators.ProductIterator, theory_mean::Vector{T}, theory_var::Matrix{T}, ΔT::Matrix) where {T<:AbstractFloat}
   J = length(sprod)
   nμ = length(theory_mean)
   (nμ, nμ) == size(theory_var) || throw(error(DimensionMismatch()))
@@ -98,7 +98,7 @@ end
 
 
 # Univariate version
-function momentdiff!(sprod::Base.Iterators.AbstractProdIterator, theory_mean::T, theory_sd::T, ΔT::Matrix) where {T<:AbstractFloat}
+function momentdiff!(sprod::Base.Iterators.ProductIterator, theory_mean::T, theory_sd::T, ΔT::Matrix) where {T<:AbstractFloat}
   J = length(sprod)
   ndims(sprod) == 1 || throw(DimensionMismatch())
   (2, J) == size(ΔT) || throw(DimensionMismatch())
@@ -116,7 +116,7 @@ end
 # -------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------
 
-function matchmoment!(i::Integer, s1::NTuple{N,T}, q0::Vector{T}, ΔT::Array{T}, grad::Vector{T}, approxErr::AbstractMatrix{T}, P::AbstractMatrix{T}, moments_matched::AbstractVector{Int}, μ::Function, Σ::Function, state_prod::Base.Iterators.AbstractProdIterator) where {N,T}
+function matchmoment!(i::Integer, s1::NTuple{N,T}, q0::Vector{T}, ΔT::Array{T}, grad::Vector{T}, approxErr::AbstractMatrix{T}, P::AbstractMatrix{T}, moments_matched::AbstractVector{Int}, μ::Function, Σ::Function, state_prod::Base.Iterators.ProductIterator) where {N,T}
   L, J = size(ΔT)
 
   mean0 = μ(s1)

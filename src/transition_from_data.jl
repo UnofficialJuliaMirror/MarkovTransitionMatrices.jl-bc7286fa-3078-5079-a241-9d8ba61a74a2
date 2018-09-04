@@ -13,7 +13,7 @@ markov_transition_match_option(μ::Function, Σ::Function, ::Type{Val{false}}, m
 
 function BMtransition_from_data(logxy::Array{T,2}, matching::Type; zero_cov::Bool=true, minp::Real=1e-9, kwargs...) where {T<:Real}
     0.0 <= minp < 1.0 || throw(DomainError())
-    grids = ((make_grid_min_max(logxy[:,j]; kwargs...) for j in 1:size(logxy, 2))...)
+    grids = ((make_grid_min_max(logxy[:,j]; kwargs...) for j in 1:size(logxy, 2))...,)
     Σ = cov(diff(logxy,1))
     zero_cov  &&  Σ .= Diagonal(Σ)
     transition = markov_transition_match_option((xy::NTuple) -> [xy...], (xy::NTuple) -> Σ, matching, minp, grids...)
