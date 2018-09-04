@@ -1,6 +1,10 @@
-julia 0.6
+julia 0.7
 
 Distributions
 Optim 0.9.0
 GenGlobal
 StatsFuns
+Distributions
+SharedArrays
+Base.Iterators
+Distributed
