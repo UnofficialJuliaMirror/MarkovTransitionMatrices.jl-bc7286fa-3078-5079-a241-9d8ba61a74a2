@@ -9,6 +9,10 @@
 This package creates a Markov transition matrix `P[i,j] = Pr(state_{t+1}=j | state_t = i)`
 for a discrete process where innovations are Gaussian. The matrix returned is sparse to save space.
 
+# IN PROGRESS: better moment matching
+
+[Farmer and Toda (2006)](http://dx.doi.org/10.3982/QE737) show how one can match an arbitrary number of moments from a discrete distribution. Their code is partially translated. See `example/bivariate-brownian.jl` for an example.
+
 # Example: Correlated random walk
 
 To model `x_{t+1} = x_t + u_{t+1}` where `u_{t+1} ∼ N(0,Σ)`, we first pick a grid:
