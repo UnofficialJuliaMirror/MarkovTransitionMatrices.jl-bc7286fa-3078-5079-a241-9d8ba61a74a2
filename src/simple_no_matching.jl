@@ -12,7 +12,7 @@ function markov_transition(μ::Function, Σ::Function, minp::AbstractFloat, stat
   0. <= minp < 1. || throw(DomainError())
 
   state_prod = Base.product(statevectors...)
-  
+
   P = zeros(T, length(state_prod), length(state_prod))
 
   for (j, s2) in enumerate(state_prod)
@@ -22,7 +22,7 @@ function markov_transition(μ::Function, Σ::Function, minp::AbstractFloat, stat
     end
   end
 
-  return fixp(P, minp)
+  return sparsify!(P, minp)
 end
 
 
@@ -39,11 +39,11 @@ and return EITHER
 The markov-switching matrix is NOT transposed and equals `π[i,j] = Pr(j|i)`
 
 """
-function markovswitching_transition{T<:AbstractFloat}(μ::Function, Σ::Function, π::Matrix{Float64}, minp::AbstractFloat, statevectors::AbstractVector{T}...)
+function markovswitching_transition(μ::Function, Σ::Function, π::Matrix{Float64}, minp::AbstractFloat, statevectors::AbstractVector{T}...) where {T<:AbstractFloat}
 
   k = size(π,1)
   k == size(π,2)   || throw(DimensionMismatch())
-  all(sum(π,2) .≈ 1.0) || throw(error("each row of π must sum to 1"))
+  all(sum(π, dims=2) .≈ 1.0) || throw(error("each row of π must sum to 1"))
 
 
   n = prod(map(length, statevectors))

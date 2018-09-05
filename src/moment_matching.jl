@@ -15,7 +15,7 @@ end
 
 function lower_triangular(x::AbstractMatrix{T}) where {T}
   n = size(x, 1)
-  ltvec = Vector{T}(Int(n*(n+1)/2))
+  ltvec = Vector{T}(undef, Int(n*(n+1)/2))
   get_lower_triangular(x, ltvec)
 end
 
@@ -68,7 +68,7 @@ function h!(λ::Vector{T}, hess::Matrix{T}, q0::Vector{T}, ΔT::Matrix{T}) where
   @inbounds for j = 1:J
     x = q0[j] * exp(dot(λ, @view(ΔT[:,j])))
     vw = @view(ΔT[:,j])
-    Base.LinAlg.BLAS.gemm!('N', 'T', x, vw, vw, one(T), hess)
+    BLAS.gemm!('N', 'T', x, vw, vw, one(T), hess)
   end
 end
 
@@ -77,7 +77,7 @@ end
 
 
 # Multivariate version
-function momentdiff!(sprod::Base.Iterators.AbstractProdIterator, theory_mean::Vector{T}, theory_var::Matrix{T}, ΔT::Matrix) where {T<:AbstractFloat}
+function momentdiff!(sprod::Base.Iterators.ProductIterator, theory_mean::Vector{T}, theory_var::Matrix{T}, ΔT::Matrix) where {T<:AbstractFloat}
   J = length(sprod)
   nμ = length(theory_mean)
   (nμ, nμ) == size(theory_var) || throw(error(DimensionMismatch()))
@@ -88,7 +88,7 @@ function momentdiff!(sprod::Base.Iterators.AbstractProdIterator, theory_mean::Ve
 
   for (j,s) in enumerate(sprod)
     dev .= [s...] .- theory_mean
-    Base.LinAlg.BLAS.gemm!('N', 'T', one(T), dev, dev, zero(T), outerprod)
+    LinearAlgebra.BLAS.gemm!('N', 'T', one(T), dev, dev, zero(T), outerprod)
     outerprod .-= theory_var
     ΔT[1:nμ, j] .= dev
     lower_triangular!(outerprod, @view(ΔT[nμ+1:end, j]))
@@ -98,7 +98,7 @@ end
 
 
 # Univariate version
-function momentdiff!(sprod::Base.Iterators.AbstractProdIterator, theory_mean::T, theory_sd::T, ΔT::Matrix) where {T<:AbstractFloat}
+function momentdiff!(sprod::Base.Iterators.ProductIterator, theory_mean::T, theory_sd::T, ΔT::Matrix) where {T<:AbstractFloat}
   J = length(sprod)
   ndims(sprod) == 1 || throw(DimensionMismatch())
   (2, J) == size(ΔT) || throw(DimensionMismatch())
@@ -116,7 +116,7 @@ end
 # -------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------
 
-function matchmoment!(i::Integer, s1::NTuple{N,T}, q0::Vector{T}, ΔT::Array{T}, grad::Vector{T}, approxErr::AbstractMatrix{T}, P::AbstractMatrix{T}, moments_matched::AbstractVector{Int}, μ::Function, Σ::Function, state_prod::Base.Iterators.AbstractProdIterator) where {N,T}
+function matchmoment!(i::Integer, s1::NTuple{N,T}, q0::Vector{T}, ΔT::Array{T}, grad::Vector{T}, approxErr::AbstractMatrix{T}, P::AbstractMatrix{T}, moments_matched::AbstractVector{Int}, μ::Function, Σ::Function, state_prod::Base.Iterators.ProductIterator) where {N,T}
   L, J = size(ΔT)
 
   mean0 = μ(s1)
@@ -136,13 +136,13 @@ function matchmoment!(i::Integer, s1::NTuple{N,T}, q0::Vector{T}, ΔT::Array{T},
   g_cl!( grad::Vector{T}, λ::Vector{T}) where {T} = g!( λ, grad, q0, ΔT)
   fg_cl!(grad::Vector{T}, λ::Vector{T}) where {T} = fg!(λ, grad, q0, ΔT)
   h_cl!( hess::Matrix{T}, λ::Vector{T}) where {T} = h!( λ, hess, q0, ΔT)
-  td = TwiceDifferentiable(f_cl, g_cl!, fg_cl!, h_cl!)
+  td = TwiceDifferentiable(f_cl, g_cl!, fg_cl!, h_cl!, ones(T,L))
 
   res = Optim.optimize(td, ones(T,L), Optim.Options(time_limit=15))
   λ = Optim.minimizer(res)
   J_candidate = Optim.minimum(res)
   g_cl!(grad, λ)
-  approxErr[:, i] .= grad / J_candidate
+  approxErr[:, i] .= grad ./ J_candidate
 
   # if we like the results, update and break
   if ( norm(@view(approxErr[:, i]), Inf) < 1e-4 ) & all(isfinite.(grad)) & all(isfinite.(λ)) & (J_candidate > 0.0)
@@ -167,7 +167,7 @@ end
 
 function markov_transition_moment_matching_parallel(μ::Function, Σ::Function, minp::AbstractFloat, statevectors::AbstractVector{T}...) where {T<:AbstractFloat}
 
-  0. <= minp < 1. || throw(DomainError())
+  0.0 <= minp < 1.0 || throw(DomainError())
 
   state_prod = Base.product(statevectors...)
 
@@ -176,9 +176,13 @@ function markov_transition_moment_matching_parallel(μ::Function, Σ::Function, 
   J = length(state_prod)     # size of state space
   L = Int(nd + nd*(nd+1)/2)  # moments to match (mean + var)
 
-  P               = SharedMatrix{T}(   (J, J,), init = S -> S[Base.localindexes(S)] = zero(T))
-  approxErr       = SharedMatrix{T}(   (L,J,),  init = S -> S[Base.localindexes(S)] = typemax(T))
-  moments_matched = SharedVector{Int}( (J,),    init = S -> S[Base.localindexes(S)] = zero(Int))
+  P               = SharedMatrix{T}(   (J, J,) ) # , init = S -> S[localindices(S)] = zero(T))
+  approxErr       = SharedMatrix{T}(   (L,J,)  ) # ,  init = S -> S[localindices(S)] = typemax(T))
+  moments_matched = SharedVector{Int}( (J,)    ) # ,    init = S -> S[localindices(S)] = zero(Int))
+
+  fill!(P, zero(T))
+  fill!(approxErr, typemax(T))
+  fill!(moments_matched, zero(Int))
 
   @eval @everywhere begin
     set_g_q0(  zeros($T, $J) )
@@ -192,19 +196,12 @@ function markov_transition_moment_matching_parallel(μ::Function, Σ::Function, 
     set_g_moments_matched($moments_matched)
   end
 
-  @sync @parallel for is1 in collect(enumerate(state_prod))
+  @sync @distributed for is1 in collect(enumerate(state_prod))
     matchmoment!(is1...)
   end
 
-  return fixp(P, minp), sdata(moments_matched), sdata(approxErr)
+  return sparsify!(P, minp), sdata(moments_matched), sdata(approxErr)
 end
-
-
-
-
-
-
-
 
 
 
@@ -238,5 +235,5 @@ function markov_transition_moment_matching_serial(μ::Function, Σ::Function, mi
     matchmoment!(i, s1, q0, ΔT, grad, approxErr, P, moments_matched, μ, Σ, state_prod)
   end
 
-  return fixp(P, minp), moments_matched, approxErr
+  return sparsify!(P, minp), moments_matched, approxErr
 end

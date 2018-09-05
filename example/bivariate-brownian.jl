@@ -1,5 +1,5 @@
 using MarkovTransitionMatrices
-using Base.Test
+using Test
 using Plots
 gr()
 
@@ -12,15 +12,15 @@ n = nP * nC
 
 Πk = [0x1.d7e13e2f38db1p-1 0x1.40f60e8638b53p-4;
       0x1.098244df0fddfp-4 0x1.decfb7641df78p-1]
-all(sum(Πk,2) .≈ 1.0) || throw(error("each row of π must sum to 1"))
+all(sum(Πk, dims=2) .≈ 1.0) || throw(error("each row of π must sum to 1"))
 
 K = size(Πk,2)
 extrema_p = [0.8776572, 2.485073]
 extrema_c = [0.2437302, 1.529529]
 
 # state-spaces
-pspace = linspace(extrema_p[1]-log(1.5), extrema_p[2] + log(1.5), nP)
-cspace = linspace(extrema_c[1]-log(1.5), extrema_c[2] + log(1.5), nC)
+pspace = range(extrema_p[1]-log(1.5), stop=extrema_p[2] + log(1.5), length=nP)
+cspace = range(extrema_c[1]-log(1.5), stop=extrema_c[2] + log(1.5), length=nC)
 
 # make deviations
 zrandwalk(x::Real, st::Real, σ::Real) = (x - st) / σ

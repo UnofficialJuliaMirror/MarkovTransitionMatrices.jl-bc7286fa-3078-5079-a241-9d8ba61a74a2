@@ -1,4 +1,4 @@
-# __precompile__()
+__precompile__()
 
 module MarkovTransitionMatrices
 
@@ -6,6 +6,11 @@ using GenGlobal
 using Distributions
 using Optim
 using StatsFuns
+using SharedArrays
+using Base.Iterators
+using Distributed
+using LinearAlgebra
+using SparseArrays
 
 export markov_transition, markovswitching_transition, markov_transition_moment_matching_parallel, markov_transition_moment_matching_serial
 
@@ -19,12 +24,14 @@ whichP(P::SharedMatrix,   ::Type{Val{false}}) = sdata(P)
 whichP(P::Matrix,         ::Type{Val{false}}) = P
 
 function sparsify!(P::AbstractMatrix{T}, minp::Real) where {T<:AbstractFloat}
-  P ./= sum(P, 2)
+  P ./= sum(P, dims=2)
   P .*= (P .> minp)
-  P ./= sum(P, 2)
+  P ./= sum(P, dims=2)
   makesparse = minp > 0.0
   return whichP(P, Val{makesparse})
 end
+
+
 
 include("simple_no_matching.jl")
 include("moment_matching.jl")

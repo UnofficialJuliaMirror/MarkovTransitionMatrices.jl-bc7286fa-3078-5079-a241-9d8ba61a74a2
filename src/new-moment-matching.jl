@@ -3,7 +3,7 @@ export discreteApprox!, discreteApprox, discreteNormalApprox, discreteNormalAppr
 # ----------------------- objective functions for max entropy calcs --------------------------
 
 function expΔTx!(tmpvec::Vector, ΔT::AbstractMatrix, x::AbstractVector)
-  A_mul_B!(tmpvec, ΔT, x)
+  mul!(tmpvec, ΔT, x)
   tmpvec .= exp.(tmpvec)
 end
 
@@ -32,10 +32,10 @@ function entropyObjective_h!(hess::Matrix{T}, tmpvec::Vector, x::Vector, q::Vect
   n,L = size(ΔT)
   expΔTx!(tmpvec, ΔT, x)
   tmpvec .*= q
-  hess .= zero(T)
+  fill!(hess, zero(T))
   for k = 1:L
     for l = 1:L
-      hess[l,k] .= sum(@view(ΔT[:,l]) .* tmpvec .* @view(ΔT[:,k]))
+      hess[l,k] = sum(@view(ΔT[:,l]) .* tmpvec .* @view(ΔT[:,k]))
     end
   end
 end
@@ -52,12 +52,6 @@ function discreteApprox!(p::AbstractVector, λfinal::AbstractVector, err::Abstra
   l == length(err)   || throw(DimensionMismatch())
   n == length(tmp)   || throw(DimensionMismatch())
 
-  tdf = TwiceDifferentiable(
-    (x::Vector)               -> entropyObjective_f!(       tmp, x, q0, ΔT),
-    (grad::Vector, x::Vector) -> entropyObjective_g!( grad, tmp, x, q0, ΔT),
-    (grad::Vector, x::Vector) -> entropyObjective_fg!(grad, tmp, x, q0, ΔT),
-    (hess::Matrix, x::Vector) -> entropyObjective_h!( hess, tmp, x, q0, ΔT)
-  )
 
   # test that initial value is finite
   λ0 = zeros(T,l)
@@ -65,6 +59,14 @@ function discreteApprox!(p::AbstractVector, λfinal::AbstractVector, err::Abstra
   f0 = entropyObjective_fg!(grad, tmp, λ0, q0, ΔT)
   !isfinite(f0)         && return Inf
   !all(isfinite.(grad)) && return Inf
+
+  tdf = TwiceDifferentiable(
+    (x::Vector)               -> entropyObjective_f!(       tmp, x, q0, ΔT),
+    (grad::Vector, x::Vector) -> entropyObjective_g!( grad, tmp, x, q0, ΔT),
+    (grad::Vector, x::Vector) -> entropyObjective_fg!(grad, tmp, x, q0, ΔT),
+    (hess::Matrix, x::Vector) -> entropyObjective_h!( hess, tmp, x, q0, ΔT),
+    λ0
+  )
 
   opt = Optim.optimize(tdf, λ0, Newton())
   λ1 = opt.minimizer
@@ -102,7 +104,7 @@ end
 
 
 
-function discreteApprox!(P::AbstractMatrix, y::AbstractVector{T}, S::Union{AbstractVector, Base.Iterators.AbstractProdIterator}, zval::Function, pdffun::Function, scaled_moments::Vector, scale_factor::Real, maxMoments::Integer, κ::Real) where {T<:Real}
+function discreteApprox!(P::AbstractMatrix, y::AbstractVector{T}, S::Union{AbstractVector, Base.Iterators.ProductIterator}, zval::Function, pdffun::Function, scaled_moments::Vector, scale_factor::Real, maxMoments::Integer, κ::Real) where {T<:Real}
 
   nS = length(S)
   n = length(y)
@@ -116,10 +118,10 @@ function discreteApprox!(P::AbstractMatrix, y::AbstractVector{T}, S::Union{Abstr
   numMoments = zeros(Int, nS)
 
   # preallocate these, which will be updated each iteration
-  ΔT  = Array{T}(n, maxMoments)
-  z   = Array{T}(n)
-  q   = Array{T}(n)
-  tmp = Array{T}(n)
+  ΔT  = Array{T}(undef,n, maxMoments)
+  z   = Array{T}(undef,n)
+  q   = Array{T}(undef,n)
+  tmp = Array{T}(undef,n)
 
   for (i,st) in enumerate(S)
     z .= zval.(y, st)
@@ -147,7 +149,7 @@ end
 
 # ----------------------- wrappers --------------------------
 
-function discreteApprox(y::AbstractVector{T}, S::Union{AbstractVector, Base.Iterators.AbstractProdIterator}, zval::Function, pdffun::Function, scaled_moments::Vector, scale_factor::Real, maxMoments::Integer, κ::Real) where {T<:Real}
+function discreteApprox(y::AbstractVector{T}, S::Union{AbstractVector, Base.Iterators.ProductIterator}, zval::Function, pdffun::Function, scaled_moments::Vector, scale_factor::Real, maxMoments::Integer, κ::Real) where {T<:Real}
   n = length(y)
   nS = length(S)
   P = Array{T}(nS,n)
@@ -156,15 +158,15 @@ end
 
 
 
-function discreteNormalApprox!(P::AbstractMatrix, y::AbstractVector, S::Union{AbstractVector, Base.Iterators.AbstractProdIterator}, zval::Function, maxMoments::Integer, κ::Real)
+function discreteNormalApprox!(P::AbstractMatrix, y::AbstractVector, S::Union{AbstractVector, Base.Iterators.ProductIterator}, zval::Function, maxMoments::Integer, κ::Real)
   scale_factor = maximum(abs.(y))
-  scaled_moments = [m for m in NormCentralMoment(maxMoments, 1./scale_factor)]
+  scaled_moments = [m for m in NormCentralMoment(maxMoments, 1.0/scale_factor)]
   discreteApprox!(P, y, S, zval, normpdf, scaled_moments, scale_factor, maxMoments, κ)
 end
 
-function discreteNormalApprox(y::AbstractVector{T}, S::Union{AbstractVector, Base.Iterators.AbstractProdIterator}, zval::Function, maxMoments::Integer=2, κ::Real=1e-8) where {T}
+function discreteNormalApprox(y::AbstractVector{T}, S::Union{AbstractVector, Base.Iterators.ProductIterator}, zval::Function, maxMoments::Integer=2, κ::Real=1e-8) where {T}
   n = length(y)
-  P = Matrix{T}(n,n)
+  P = Matrix{T}(undef,n,n)
   out = discreteNormalApprox!(P, y, S, zval, maxMoments, κ)
   return (P, out...)
 end

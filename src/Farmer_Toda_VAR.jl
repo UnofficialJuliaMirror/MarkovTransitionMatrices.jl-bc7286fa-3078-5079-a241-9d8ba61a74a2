@@ -18,14 +18,14 @@ export VAR_process, VAR_states_transition, sparsify_transition_matrix
 # -------------------- types --------------------------
 
 "Includes the states & transition for discretized VAR process"
-type VAR_states_transition{T<:AbstractFloat}
+mutable struct VAR_states_transition{T<:AbstractFloat}
   X::Array{T}
   P::Array{T,2}
 end
 
 
 "VAR process object that we will discretize"
-type VAR_process{T<:AbstractFloat}
+mutable struct VAR_process{T<:AbstractFloat}
   b::Array{T}
   B::Array{T,2}
   Ψ::Array{T,2}
@@ -125,7 +125,7 @@ function yspace(vp::VAR_process{T}, Nm::Int=5, nσ::T=0.0) where {T<:AbstractFlo
   if nσ <= zero(T)
     nσ = sqrt(convert(T, Nm) - one(T))
   end
-  return linspace(-σmin*nσ, σmin*nσ, Nm)
+  return range(-σmin*nσ, stop=σmin*nσ, length=Nm)
 end
 
 
@@ -201,7 +201,8 @@ end
 # -------------------- big function that makes transition matrix --------------------------
 
 # return a PDF
-normpdf(x::Vector{T}) = pdf(Normal(), x)
+normpdf(x::Real) = pdf(Normal(), x)
+normpdf(x::Vector{<:Real}) = normpdf.(x)
 
 # objective
 f(x::Vector{T}, q::Vector{T}, ΔT::Matrix{T}) where {T} = dot(q,exp(x'*ΔT[1:l,:]))
@@ -277,7 +278,7 @@ function makeTransitionMatrix(y::Vector{T}, S::PT, D::Array{T}, vp::VAR_process{
   for j in 1:length(S)
     for m in 1:vp.M
       dev .= (y - dot(vp.A[m,:], D[:,j]))
-      q .= max(normpdf(dev), κ)
+      q .= max(normpdf.(dev), κ)
 
       for l in L:-1:1
         ΔT[1:l,:] = (dev ./ δ )'.^(1:l) .- Tbar(l, δ)
@@ -348,7 +349,7 @@ function sparsify_transition_matrix(P::Matrix{T}, minp::T, which_diags::UnitRang
   sb = striped_bool(size(P, 1), size(P, 2), which_diags)
   P_big = P .> minp
   P_new = P .* sb .* P_big
-  P_new_rowsums = sum(P_new, 2)
+  P_new_rowsums = sum(P_new, dims=2)
   for i in 1:size(P_new, 1)
     P_new[i, :] .= P_new[i, :] ./ P_new_rowsums[i]
   end
@@ -358,11 +359,11 @@ function sparsify_transition_matrix(P::Matrix{T}, minp::T, which_diags::UnitRang
 end
 
 
-function sparsify_transition_matrix{T<:AbstractFloat}(P::Matrix{T}, minp::T)::SparseMatrixCSC{T}
+function sparsify_transition_matrix(P::Matrix{T}, minp::T)::SparseMatrixCSC{T} where T<:AbstractFloat
 
   P_big = P .> minp
   P_new = P .* P_big
-  P_new_rowsums = sum(P_new, 2)
+  P_new_rowsums = sum(P_new, dims=2)
   for i in 1:size(P_new, 1)
     P_new[i, :] .= P_new[i, :] ./ P_new_rowsums[i]
   end
