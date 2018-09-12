@@ -18,5 +18,5 @@ P = markov_transition(μ, Σ, minp, grid_x1, grid_x2)
 πswitch = [.9 .1; .4 .6]
 
 μswitch(r::Int, s) = r==1 ? [s...] : [s...] .+ ones(2)
-Σswitch(r::Int, s) = r==1 ? eye(2) : [1.0 0.5; 0.5 1.0]
+Σswitch(r::Int, s) = r==1 ? Matrix(1.0I,2,2) : [1.0 0.5; 0.5 1.0]
 Pswitch = markovswitching_transition(μswitch, Σswitch, πswitch, 1e-8, grid_x1, grid_x2)
