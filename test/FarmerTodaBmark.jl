@@ -1,7 +1,11 @@
 
 # test against Farmer Toda MATLAB values
-DFT99 = squeeze(hex2num.(["c0340cd923b15b89"   "c02e1345b58a094e"   "c0240cd923b15b89"   "c0140cd923b15b88"   "0000000000000000"   "40140cd923b15b88"   "40240cd923b15b8a"   "402e1345b58a094e"   "40340cd923b15b89"]),1)
-PFT99 = hex2num.(
+
+
+hex2num_me(s) = reinterpret(Float64, parse(UInt64, s, base = 16))
+
+DFT99 = dropdims(hex2num_me.(["c0340cd923b15b89"   "c02e1345b58a094e"   "c0240cd923b15b89"   "c0140cd923b15b88"   "0000000000000000"   "40140cd923b15b88"   "40240cd923b15b8a"   "402e1345b58a094e"   "40340cd923b15b89"]); dims=1)
+PFT99 = hex2num_me.(
       [ "3feebdff4a767113"   "3fa3c61f93aef8f1"   "3f464066ed540f5d"   "3edd4507c34018f2"   "3dded173035783dd"   "3c49f92e9f402b9c"   "3a21859dbed5564e"   "3762ec61a6257787"   "34105bcf2cf90500";
         "3d99649e3e85a1e9"   "3fef2e561795e507"   "3f96a88e64e8b5cd"   "3f64ba2e346747b5"   "3f4e8d7202f75e32"   "3ecfa9d74ae8221e"   "3de7124bc92f5c91"   "3c97a393256534a1"   "3ae10768d4a1c15f";
         "3c1af68f17efc8f0"   "3dc8b97cb927921b"   "3fef97050c545fe9"   "3f814097bd0adae2"   "3f5c24ab3f85ffdf"   "3f64e95cfe5cc002"   "3f1f902982d4999c"   "3e883178a38482b3"   "3da2d5af6cc1ee2f";
@@ -20,9 +24,9 @@ L = 2
 σ = 1.
 
 # set up state space
-σlr = sqrt(1. / (1.-ρ^2.))
+σlr = sqrt(1.0 / (1.0-ρ^2))
 nσ = sqrt(n-1)
-y = linspace(-σlr*nσ, σlr*nσ, n)
+y = range(-σlr*nσ, stop=σlr*nσ, length=n)
 @test y ≈ DFT99
 
 # output

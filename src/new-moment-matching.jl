@@ -3,7 +3,7 @@ export discreteApprox!, discreteApprox, discreteNormalApprox, discreteNormalAppr
 # ----------------------- objective functions for max entropy calcs --------------------------
 
 function expΔTx!(tmpvec::Vector, ΔT::AbstractMatrix, x::AbstractVector)
-  A_mul_B!(tmpvec, ΔT, x)
+  mul!(tmpvec, ΔT, x)
   tmpvec .= exp.(tmpvec)
 end
 
@@ -32,10 +32,10 @@ function entropyObjective_h!(hess::Matrix{T}, tmpvec::Vector, x::Vector, q::Vect
   n,L = size(ΔT)
   expΔTx!(tmpvec, ΔT, x)
   tmpvec .*= q
-  hess .= zero(T)
+  fill!(hess, zero(T))
   for k = 1:L
     for l = 1:L
-      hess[l,k] .= sum(@view(ΔT[:,l]) .* tmpvec .* @view(ΔT[:,k]))
+      hess[l,k] = sum(@view(ΔT[:,l]) .* tmpvec .* @view(ΔT[:,k]))
     end
   end
 end
@@ -118,10 +118,10 @@ function discreteApprox!(P::AbstractMatrix, y::AbstractVector{T}, S::Union{Abstr
   numMoments = zeros(Int, nS)
 
   # preallocate these, which will be updated each iteration
-  ΔT  = Array{T}(n, maxMoments)
-  z   = Array{T}(n)
-  q   = Array{T}(n)
-  tmp = Array{T}(n)
+  ΔT  = Array{T}(undef,n, maxMoments)
+  z   = Array{T}(undef,n)
+  q   = Array{T}(undef,n)
+  tmp = Array{T}(undef,n)
 
   for (i,st) in enumerate(S)
     z .= zval.(y, st)
@@ -166,7 +166,7 @@ end
 
 function discreteNormalApprox(y::AbstractVector{T}, S::Union{AbstractVector, Base.Iterators.ProductIterator}, zval::Function, maxMoments::Integer=2, κ::Real=1e-8) where {T}
   n = length(y)
-  P = Matrix{T}(n,n)
+  P = Matrix{T}(undef,n,n)
   out = discreteNormalApprox!(P, y, S, zval, maxMoments, κ)
   return (P, out...)
 end

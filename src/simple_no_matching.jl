@@ -22,7 +22,7 @@ function markov_transition(μ::Function, Σ::Function, minp::AbstractFloat, stat
     end
   end
 
-  return fixp(P, minp)
+  return sparsify!(P, minp)
 end
 
 
@@ -43,7 +43,7 @@ function markovswitching_transition(μ::Function, Σ::Function, π::Matrix{Float
 
   k = size(π,1)
   k == size(π,2)   || throw(DimensionMismatch())
-  all(sum(π,2) .≈ 1.0) || throw(error("each row of π must sum to 1"))
+  all(sum(π, dims=2) .≈ 1.0) || throw(error("each row of π must sum to 1"))
 
 
   n = prod(map(length, statevectors))
