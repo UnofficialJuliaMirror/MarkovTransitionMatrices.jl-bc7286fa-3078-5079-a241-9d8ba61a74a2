@@ -5,9 +5,3 @@ Optim 0.9.0
 GenGlobal
 StatsFuns
 Distributions
-<<<<<<< HEAD
-=======
-SharedArrays
-Base.Iterators
-Distributed
->>>>>>> new-moment-matching

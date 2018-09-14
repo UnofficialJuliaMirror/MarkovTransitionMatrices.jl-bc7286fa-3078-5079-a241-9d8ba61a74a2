@@ -151,11 +151,7 @@ end
 
 
 "Make state space matrix from product iterator"
-<<<<<<< HEAD
-function makeD(S::Base.Iterators.AbstractProdIterator)
-=======
 function makeD(S::Base.Iterators.ProductIterator)
->>>>>>> new-moment-matching
   T = eltype(eltype(S))
   D = zeros(T, length(size(S)), length(S) )
   for (j,s) in enumerate(S)
