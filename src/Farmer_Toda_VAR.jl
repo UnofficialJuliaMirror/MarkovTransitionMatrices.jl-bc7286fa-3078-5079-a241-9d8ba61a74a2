@@ -18,14 +18,14 @@ export VAR_process, VAR_states_transition, sparsify_transition_matrix
 # -------------------- types --------------------------
 
 "Includes the states & transition for discretized VAR process"
-mutable struct VAR_states_transition{T<:AbstractFloat}
+struct VAR_states_transition{T<:AbstractFloat}
   X::Array{T}
   P::Array{T,2}
 end
 
 
 "VAR process object that we will discretize"
-mutable struct VAR_process{T<:AbstractFloat}
+struct VAR_process{T<:AbstractFloat}
   b::Array{T}
   B::Array{T,2}
   Ψ::Array{T,2}
