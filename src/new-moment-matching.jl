@@ -88,7 +88,7 @@ function discreteApprox!(p::AbstractVector, λfinal::AbstractVector, err::Abstra
 end
 
 
-function ΔTmat!(ΔT::Matrix, dev::Vector, Tbar::Vector)
+function ΔTmat!(ΔT::Matrix, dev::AbstractVector, Tbar::Vector)
   n,L = size(ΔT)
   length(dev) == n || throw(DimensionMismatch())
   length(Tbar) == L || throw(DimensionMismatch())
