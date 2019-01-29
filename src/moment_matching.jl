@@ -145,9 +145,9 @@ function matchmoment!(i::Integer, s1::NTuple{N,T}, q0::Vector{T}, ΔT::Array{T},
   approxErr[:, i] .= grad ./ J_candidate
 
   # if we like the results, update and break
-  if ( norm(@view(approxErr[:, i]), Inf) < 1e-4 ) & all(isfinite.(grad)) & all(isfinite.(λ)) & (J_candidate > 0.0)
+  @views if ( norm(approxErr[:, i], Inf) < 1e-4 ) & all(isfinite.(grad)) & all(isfinite.(λ)) & (J_candidate > 0.0)
     for k in 1:length(q0)
-      P[i,k] = q0[k] * exp( dot(λ, @view(ΔT[:,k])) ) / J_candidate
+      @views P[i,k] = q0[k] * exp( dot(λ, ΔT[:,k]) ) / J_candidate
     end
     moments_matched[i] = L
   else

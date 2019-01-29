@@ -130,7 +130,7 @@ function discreteApprox!(P::AbstractMatrix, y::AbstractVector{T}, S::Union{Abstr
     ΔTmat!(ΔT, z, scaled_moments)
     updated = false
     for l in maxMoments:-1:2
-      J = discreteApprox!(@view(P[i,:]), @view(Λ[i,1:l]), @view(approxErr[i,1:l]), tmp, q, @view(ΔT[:,1:l]))
+      @views J = discreteApprox!(P[i,:], Λ[i,1:l], approxErr[i,1:l], tmp, q, ΔT[:,1:l])
       if isfinite(J)
         JN[i], numMoments[i] = (J, l)
         updated = true

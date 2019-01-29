@@ -254,7 +254,7 @@ by taking the Kronecker product of the `M` columns of matrix `P[i, :, :]`.
 function makeTransitionMatrix(y::Vector{T}, S::PT, D::Array{T}, vp::VAR_process{T}, L::Int=2, κ::T=1e-8) where {T<:AbstractFloat, PT<:Union{AbstractVector{T}, Base.AbstractProdIterator}}
 
   if L >= length(y)
-    warn("Using fewer moments. Gave ", L, " using ", length(y)-1)
+    @warn "Using fewer moments. Gave $(L) but using $(length(y)-1)"
     L = length(y)-1
   end
 
