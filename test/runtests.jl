@@ -9,6 +9,7 @@ using Distributions
 
 isapprox_oneval(x::AbstractArray) = all( x .≈ x[1] )
 
+include("tvpack.jl")
 include("FarmerTodaBmark.jl")
 
 # setup for test
