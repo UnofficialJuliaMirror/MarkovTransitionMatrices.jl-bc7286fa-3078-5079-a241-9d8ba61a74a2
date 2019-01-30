@@ -265,7 +265,7 @@ function bvtcdf(nu::Int, dh::Float64, dk::Float64, r::Float64)
 		hs = sign(hrk)
 		ks = sign(krh)
 		if mod(nu, 2) == 0
-			bvt = atan2(sqrt(ors), -r) / (2.0pi)
+			bvt = atan2(sqrt(ors), -r) / twoπ
 			gmph = dh / sqrt(16.0 * (nu + dh^2))
 			gmpk = dk / sqrt(16.0 * (nu + dk^2))
 			btnckh = 2.0atan2(sqrt(xnkh), sqrt(1.0 - xnkh)) / pi
@@ -287,12 +287,12 @@ function bvtcdf(nu::Int, dh::Float64, dk::Float64, r::Float64)
             hkrn = dh*dk + r*nu
             hkn = dh*dk - nu
             hpk = dh + dk
-            bvt = atan2(-snu * (hkn * qhrk + hpk * hkrn), hkn * hkrn - nu * hpk * qhrk) / (2.0pi)
+            bvt = atan2(-snu * (hkn * qhrk + hpk * hkrn), hkn * hkrn - nu * hpk * qhrk) / twoπ
             if bvt < -eps()
             	bvt += 1.0
             end
-            gmph = dh / (2.0pi * snu * (1.0 + dh * dh / nu))
-            gmpk = dk / (2.0pi * snu * (1.0 + dk * dk / nu))
+            gmph = dh / (twoπ * snu * (1.0 + dh * dh / nu))
+            gmpk = dk / (twoπ * snu * (1.0 + dk * dk / nu))
             btnckh = sqrt(xnkh)
             btpdkh = btnckh
             btnchk = sqrt(xnhk)
@@ -391,7 +391,7 @@ function bvnuppercdf(dh::T, dk::T, r::T)::T where {T<:Float64}
 		      	end
 		      	if -hk < 100
 		         	b = sqrt(bs)
-		         	bvn -= exp(-hk * 0.5) * sqrt(2.0pi) * normcdf(-b / a) * b * (1.0 - c * bs * (1.0 - d * bs / 5.0) / 3.0)
+		         	bvn -= exp(-hk * 0.5) * sqrt2π * normcdf(-b / a) * b * (1.0 - c * bs * (1.0 - d * bs / 5.0) / 3.0)
 		      	end
 		     	a /= 2.0
 			    for i = 1:lg
@@ -404,7 +404,7 @@ function bvnuppercdf(dh::T, dk::T, r::T)::T where {T<:Float64}
 		            	end
 		         	end
 		        end
-		      	bvn /= -2.0pi
+		      	bvn /= -twoπ
 		   	end
 		   	if r > 0
 		      	bvn += normcdf(-max(h, k))
