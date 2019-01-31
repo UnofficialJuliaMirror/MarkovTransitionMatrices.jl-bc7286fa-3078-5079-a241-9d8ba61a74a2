@@ -1,4 +1,4 @@
-export tauchen_2d!, bvn_discreteApprox!, tauchen_1d!
+export tauchen_2d!, tauchen_1d!, bvn_discreteApprox!, tauchen_2d, tauchen_1d
 
 function bvn_upperlower_cdf(xlim::NTuple{2}, ylim::NTuple{2}, r::Float64)
     xl,xu = xlim
@@ -33,6 +33,19 @@ function tauchen_1d!(P::AbstractMatrix, S::AbstractVector, μ::Function, σ2::Nu
     end
 end
 
+function tauchen_1d(S::AbstractVector{T}, μ::Function, σ2::Number) where {T<:Real}
+    n = length(S)
+    P = Matrix{T}(undef,n,n)
+    tauchen_1d!(P,S,μ,σ2)
+    return P
+end
+
+function tauchen_2d(S::Base.Iterators.ProductIterator, μ::Function, Σ::AbstractMatrix{T}) where {T<:Real}
+  n = length(S)
+  P = Matrix{T}(undef,n,n)
+  tauchen_2d!(P,S,μ,Σ)
+  return P
+end
 
 function tauchen_2d!(P::AbstractMatrix, S::Base.Iterators.ProductIterator, μ::Function, Σ::AbstractMatrix)
     ndims(S) == 2

@@ -33,6 +33,11 @@ using StatsBase
 
     tauchen_2d!(P, yyspace, μ, Σ)
     @test all(sum(P, dims=2) .≈ 1.0)
+    P3 = copy(P)
+    tauchen_2d!(P, product(yspace.*sqrt2, yspace.*sqrt2), μ, Σ.*2)
+    @test P ≈ P3
+
+    @test all(sum(P, dims=2) .≈ 1.0)
     JN, Λ, numMoments, approxErr = bvn_discreteApprox!(P2, yyspace, μ, Σ)
     @test all(sum(P2, dims=2) .≈ 1.0)
 
