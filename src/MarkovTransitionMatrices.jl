@@ -40,7 +40,7 @@ include("transition_from_data.jl")
 include("normal_moments.jl")
 include("new-moment-matching.jl")
 include("tvpack.jl")
-
+include("tauchen_2d.jl")
 
 # module end
 end
